@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gabinetes Sustentáveis</title>
+    <style>
+        :root {
+            --braga-blue: #1d438a; 
+            --header-green: #4caf50;
+            --row-a: #4db37e; --row-b: #8bc34a; --row-c: #cddc39;
+            --row-d: #ffeb3b; --row-e: #ffc107; --row-f: #ff9800; --row-g: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1d438a 0%, #764ba2 100%);
+            min-height: 100vh; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .board { background: white; width: 100%; max-width: 500px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; margin-top: 20px; }
+        .header-bar { height: 10px; background: var(--header-green); }
+        .content { padding: 20px; }
+        .info-sala { background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 20px; color: var(--braga-blue); font-weight: bold; text-align: center; border: 1px solid #ddd; }
+        .grid-container { display: grid; grid-template-columns: 80px repeat(5, 1fr); gap: 8px; align-items: center; }
+        .day-label { text-align: center; font-weight: bold; font-size: 11px; color: var(--braga-blue); padding-bottom: 5px; }
+        .row-label { color: white; font-weight: bold; padding: 6px; font-size: 14px; text-align: center; border-radius: 4px; clip-path: polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%); }
+        .checkbox { width: 34px; height: 34px; border: 2px solid #ccc; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; margin: auto; }
+        .checkbox.locked { background: #f0f0f0; cursor: not-allowed; opacity: 0.3; border-color: #eee; }
+        .checkbox.active { background: var(--header-green); border-color: var(--header-green); color: white; font-weight: bold; }
+        .checkbox.active::after { content: '✓'; }
+        .btn-submit { width: 100%; padding: 16px; background: var(--braga-blue); color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin-top: 20px; cursor: pointer; }
+        .btn-submit:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-test { background: #ff9800; color: white; border: none; padding: 10px; border-radius: 8px; width: 100%; cursor: pointer; font-size: 12px; margin-top: 15px; opacity: 0.8; }
+        
+        /* Cores das Linhas */
+        .A { background: var(--row-a); } .B { background: var(--row-b); } .C { background: var(--row-c); }
+        .D { background: var(--row-d); } .E { background: var(--row-e); } .F { background: var(--row-f); } .G { background: var(--row-g); }
+    </style>
+</head>
+<body>
+
+<div class="board">
+    <div class="header-bar"></div>
+    <div class="content">
+        <div class="info-sala" id="displaySala">📍 Carregando Sala...</div>
+        
+        <div class="grid-container" id="grid">
+            <div></div>
+            <div class="day-label">Seg</div><div class="day-label">Ter</div><div class="day-label">Qua</div><div class="day-label">Qui</div><div class="day-label">Sex</div>
+            </div>
+
+        <button id="submitBtn" class="btn-submit" onclick="enviarDados()" disabled>Enviar Avaliação</button>
+        <button class="btn-test" onclick="limparTeste()">🔄 MODO TESTE: Limpar Voto de Hoje</button>
+    </div>
+</div>
+
+<script>
+    const levels = ['A','B','C','D','E','F','G'];
+    const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
+    const params = new URLSearchParams(window.location.search);
+    const salaNome = params.get('sala') || "Sala_Principal";
+    const hojeNum = new Date().getDay(); // 1=Seg, 5=Sex
+
+    document.getElementById('displaySala').innerText = "📍 " + salaNome.replace(/_/g, ' ');
+
+    const grid = document.getElementById('grid');
+    let selecao = null;
+
+    levels.forEach(lvl => {
+        const label = document.createElement('div');
+        label.className = `row-label ${lvl}`;
+        label.innerText = lvl;
+        grid.appendChild(label);
+
+        for(let d=1; d<=5; d++) {
+            const cb = document.createElement('div');
+            cb.className = 'checkbox';
+            if(d !== hojeNum) {
+                cb.classList.add('locked');
+            } else {
+                cb.onclick = function() {
+                    document.querySelectorAll('.checkbox').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    selecao = { sala: salaNome, nivel: lvl, dia: days[d-1] };
+                    document.getElementById('submitBtn').disabled = false;
+                };
+            }
+            grid.appendChild(cb);
+        }
+    });
+
+    async function enviarDados() {
+        // LINK DO SEU SCRIPT (Sempre use o mais recente do Deploy)
+        const URL_GOOGLE = "https://script.google.com/macros/s/AKfycbwajarCPnJXs6LxRDzFQIciBYaZcdHRy-PmLqalV6LGS30oP5VHAiTZd_HNVwi4FfeT/exec"; 
+
+        if(!selecao) return;
+        
+        const jaVotou = localStorage.getItem(`voto_${salaNome}_${new Date().toLocaleDateString()}`);
+        if(jaVotou) {
+            alert("Você já votou nesta sala hoje!");
+            return;
+        }
+
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerText = "Enviando...";
+
+        const formData = new URLSearchParams();
+        formData.append('sala', selecao.sala);
+        formData.append('nivel', selecao.nivel);
+        formData.append('dia', selecao.dia);
+        formData.append('data', new Date().toLocaleDateString());
+        formData.append('hora', new Date().toLocaleTimeString());
+
+        try {
+            await fetch(URL_GOOGLE, { method: 'POST', mode: 'no-cors', body: formData });
+            localStorage.setItem(`voto_${salaNome}_${new Date().toLocaleDateString()}`, "true");
+            alert("✅ Sucesso! Dados enviados para a aba Votos.");
+            location.reload();
+        } catch (e) {
+            alert("Erro de conexão.");
+            btn.disabled = false;
+            btn.innerText = "Enviar Avaliação";
+        }
+    }
+
+    function limparTeste() {
+        localStorage.clear();
+        alert("Memória limpa para novos testes!");
+        location.reload();
+    }
+</script>
+</body>
+</html>
